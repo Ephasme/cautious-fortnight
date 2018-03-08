@@ -1,0 +1,25 @@
+{
+ "Metadata": {
+  "DbVersion": 1520242084675,
+  "ApiVersion": "1E3DDD3A2379B95FF818BBE89E0662BB",
+  "Version": 1508147578034,
+  "Date": "Thu, 08 Mar 2018 15:54:08 GMT",
+  "Duration": 995.4423,
+  "Origin": "Alcuin1",
+  "Exported": 9,
+  "Errors": 0,
+  "Warnings": 0
+ },
+ "Alerts": [],
+ "Content": {
+  "Added": [{
+      "Ppty1": "PptyValue1",
+   "Id": "0",
+   "ObjectType": "Type1"
+  }, {
+    "Ppty1": "PptyValue1",      
+    "Id": "1",
+    "ObjectType": "Type2"
+  }]
+ }
+}
