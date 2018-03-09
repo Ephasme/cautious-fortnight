@@ -6,6 +6,37 @@ from datetime import datetime
 import os
 import zlib
 
+def _key_selector(t):
+    return t[0][0]
+
+def _drop_key(t):
+    return (t[0][1:], t[1])
+
+def _group_by_first(items: list):
+    sort = list(sorted(items, key=_key_selector))
+    for k, v in groupby(sort, key=_key_selector):
+        yield (k, map(_drop_key, v))
+
+def _hash_tree(tree):
+    tree_index = {}
+
+    def _recursor(cur_tree):
+        cur_tree = list(cur_tree)
+
+        blobs = [t for t in cur_tree if len(t[0]) == 1]
+        subtrees = [t for t in cur_tree if len(t[0]) > 1]
+
+        content = [(t[0][0], 'blob', t[1]) for t in blobs]
+
+        for k, v in _group_by_first(subtrees):
+            content.append((k, 'tree', _recursor(v)))
+
+        id_content = hash_object(content)
+        tree_index[id_content] = content
+        return id_content
+
+    return (_recursor(tree), tree_index)
+
 def hash_object(obj):
     return sha1(str(obj).encode()).hexdigest()
 
@@ -32,13 +63,12 @@ def walk_tree(trees_index, root_id, task):
     while stack:
         (node_id, path) = stack.pop()
         node = trees_index[node_id]
-        print(f"{__path_str(path)} at {node_id}, contains {len(node)} elements")
-        for path_segment, child_node in node.items():
+        for path_segment, type, ref in node:
             new_path = [*path, path_segment]
-            if child_node[0] == 'tree':
-                stack.append((child_node[1], new_path))
+            if type == 'tree':
+                stack.append((ref, new_path))
             else:
-                task(child_node[1], new_path)
+                task(ref, new_path)
 
 def build_index_from_tree(trees_index, blobs, root_id):
     index = Index()
@@ -110,30 +140,6 @@ class Index:
         self.blobs = {}
         self.ROOT_NAME = 'r'
 
-    def write_tree(self):
-        def __reduce_index_level(index, tree = {}, type='tree'):
-            current_tree = {}
-            
-            def __hash_sub_tree(ref_list):
-                refs = [(v[1], type, v[2]) for v in ref_list]
-                key = hash_object(['\n'.join(v) for v in [' '.join(v) for v in refs]])
-                val = {ref[0]: (ref[1], ref[2]) for ref in refs}
-                current_tree[key] = val
-                return key
-            
-            next_index = sorted([(*split(k), v) for k, v in index.items()], key=lambda x:x[0])
-            next_index = {k: list(v) for k, v in groupby(next_index, key=lambda x:x[0])}
-            next_index = {k: __hash_sub_tree(v) for k, v in next_index.items() if k}
-            
-            return (next_index, dict(tree, **current_tree))
-
-        (idx, tree) = __reduce_index_level(self.paths, {}, 'blob')
-        
-        while not (self.ROOT_NAME in idx):
-            (idx, tree) = __reduce_index_level(idx, tree)
-
-        return (idx[self.ROOT_NAME], tree)
-
     def add(self, path, value):
         def __create_blob_id():
             id = hash_object(value)
@@ -142,6 +148,9 @@ class Index:
         path = normpath(self.ROOT_NAME + '/' + path)
         blob_id = __create_blob_id()
         self.paths[path] = blob_id
+
+    def write_tree(self):
+        return _hash_tree([(path.split('/'), blob_id) for path, blob_id in self.paths.items()])
 
     def rm(self, path):
         path = normpath(self.ROOT_NAME + '/' + path)
