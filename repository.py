@@ -22,14 +22,11 @@ def _hash_tree(tree):
 
     def _recursor(cur_tree):
         cur_tree = list(cur_tree)
+        
+        subtrees = {k: ('tree', _recursor(v)) for k, v in _group_by_first([t for t in cur_tree if len(t[0]) > 1])}
+        blobs = {t[0][0]: ('blob', t[1]) for t in [t for t in cur_tree if len(t[0]) == 1]}
 
-        blobs = [t for t in cur_tree if len(t[0]) == 1]
-        subtrees = [t for t in cur_tree if len(t[0]) > 1]
-
-        content = [(t[0][0], 'blob', t[1]) for t in blobs]
-
-        for k, v in _group_by_first(subtrees):
-            content.append((k, 'tree', _recursor(v)))
+        content = dict(**subtrees, **blobs)
 
         id_content = hash_object(content)
         tree_index[id_content] = content
@@ -63,7 +60,7 @@ def walk_tree(trees_index, root_id, task):
     while stack:
         (node_id, path) = stack.pop()
         node = trees_index[node_id]
-        for path_segment, type, ref in node:
+        for path_segment, (type, ref) in node.items():
             new_path = [*path, path_segment]
             if type == 'tree':
                 stack.append((ref, new_path))
@@ -108,8 +105,6 @@ def save_repository(repository):
     save_index('./repo/index', repository.index)
 
 def diff_trees(tree_id_a, tree_id_b, trees, path=[]):
-    print(f'at {"/".join(path)}')
-
     root_a = trees.get(tree_id_a)
     root_b = trees.get(tree_id_b)
 
@@ -122,16 +117,13 @@ def diff_trees(tree_id_a, tree_id_b, trees, path=[]):
         a = root_a.get(key)
         b = root_b.get(key)
         
-        if a and b and a[0] == 'tree' and a[1] == b[1]:
-            print(f"everything in {new_path_str} is ok")
         if a and b and a[0] == 'tree' and a[1] != b[1]:
-            print(f"go to => {new_path_str}")
             diff_trees(a[1], b[1], trees, new_path)
-        if a and b and a[0] == 'blob' and a[1] != b[1]:
+        elif a and b and a[0] == 'blob' and a[1] != b[1]:
             print(f"{new_path_str}: {a[1]} vs {b[1]}")
-        if a and not b:
+        elif a and not b:
             print(f"{a[0]} {new_path_str} only exists in a")
-        if b and not a:
+        elif b and not a:
             print(f"{b[0]} {new_path_str} only exists in b")
 
 class Index:
