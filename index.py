@@ -97,7 +97,7 @@ class Index:
         save_object(filename, self.pack())
 
     def __str__(self):
-        return json.dumps(self.pack(), ensure_ascii=False)
+        return json.dumps(self.pack(), indent=2, ensure_ascii=False)
 
     def add(self, path, value):
         def __create_blob_id():

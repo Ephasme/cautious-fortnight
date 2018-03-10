@@ -15,20 +15,6 @@ def _walk_tree(task, value, path = []):
         else:
             task(cur_value, cur_path)
 
-def extract_guids(d, guids_list:list=[]):
-    if (d == None or (not isinstance(d, dict) and not isinstance(d, list))):
-        return guids_list
-    try:
-        if d['IsRef'] is True:
-            return [d['TargetId']] + guids_list
-    except (TypeError, KeyError) as e:
-        pass
-    
-    new_guids_list = guids_list
-    for prop in d:
-        new_guids_list = extract_guids(d[prop] if isinstance(d, dict) else prop, new_guids_list)
-    return new_guids_list
-
 def load_config(file):
     def _build_graph(obj):
         pass

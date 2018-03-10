@@ -15,4 +15,7 @@ def save_object(filename, obj):
 
 def dump_object(filename, obj):
     with open(filename, 'w', encoding='utf8', errors='strict') as fsock:
-        fsock.write(json.dumps(obj, indent=4, ensure_ascii=False))
+        fsock.write(json.dumps(obj, indent=2, ensure_ascii=False))
+
+def print_object(obj):
+    print(json.dumps(obj, indent=2, ensure_ascii=False))
