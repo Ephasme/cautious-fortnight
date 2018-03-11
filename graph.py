@@ -69,11 +69,6 @@ def depth_first_search(graph, starting_node, reverse=False):
             if not child in visited:
                 stack.append((child, [*path, current], degree+1))
 
-def connected_components(graph):
-    for v in graph.nodes:
-        siblings = graph.neighbours_of(v)
-        print(siblings)
-
 def strongly_connected_components(graph, visit):
     indexes = {}
     low_links = {}
