@@ -13,11 +13,12 @@ class PrinterVisitor:
         print('created: ' + '/'.join(path))
 
 start = time.time()
-index = create_index_from_config('alcuin1.json')
+index = create_index_from_config('.apps/alcuin1.json')
 
 (tree_id_1, tree_1) = index.write_tree()
 
-index.add('Type2/1/1_LVL0_TREE_1/1_LVL1_BLOB_2', 'tagazok')
+index.add('TypeB/00002/1_LVL0_TREE_1/1_LVL1_BLOB_2', 'tagazok')
+index.rm('TypeB/00002/1_LVL0_TREE_1/1_LVL1_BLOB_3')
 
 (tree_id_2, tree_2) = index.write_tree()
 

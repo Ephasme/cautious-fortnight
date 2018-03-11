@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
+from crypto import sha1
 from utils import (
     dump_object,
     save_object,
-    hash_object,
 )
 from index import Index, diff_trees
 
@@ -50,7 +50,7 @@ class Repository:
             'date': datetime.now().__str__(),
             'author': author
         }
-        id = hash_object(commit)
+        id = sha1(commit)
         self.commits[id] = commit
         return id
 

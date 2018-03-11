@@ -1,61 +1,102 @@
 import json
 from repository import Index
 from itertools import groupby
+from graph import Graph, find_roots
 
-def _walk_tree(task, value, path = []):
-    stack = [(value, path)]
+def load_config(filename):
+    with open(filename, 'r', encoding='utf8') as fsock:
+        return json.load(fsock)
+
+def is_ref(d):
+    try:
+        return d['IsRef']
+    except:
+        return False
+
+def visit_refs(obj, visitor):
+    stack = [(obj, [])]
+    while stack:
+        (c, p) = stack.pop()
+        if is_ref(c):
+            yield visitor(c["TargetId"], p)
+        elif isinstance(c, dict):
+            stack.extend([(v, [*p, attr]) for attr, v in c.items()])
+
+def find_guids(obj):
+    return visit_refs(obj, lambda guid, _: guid)
+
+def find_ref_paths(obj):
+    return visit_refs(obj, lambda guid, path: (guid, path))
+
+def build_graph(config: dict) -> Graph:
+    refs = {obj['Id']: set(find_guids(obj)) for obj in config["Content"]["Added"]}
+    nodes = {obj['Id']: obj for obj in config["Content"]["Added"]}
+    return Graph(nodes, refs)
+
+def __with_follow_symlinks(func):
+    visited = set()
+    def _wrapper(graph, cur_value, cur_path):
+        if isinstance(cur_value, dict) and is_ref(cur_value):
+            target_id = cur_value['TargetId']
+            if not target_id in visited and target_id in graph.nodes:
+                target = graph.nodes[target_id]
+                visited.add(target_id)
+                return [(target, [*cur_path, target_id])]
+        else:
+            return func(graph, cur_value, cur_path)
+    return _wrapper
+
+def __nodes_provider(graph, cur_value, cur_path):
+    result = []
+    if isinstance(cur_value, dict):
+        for attr, val in cur_value.items():
+            if attr != 'Id':
+                result.append((val, [*cur_path, attr]))
+    elif isinstance(cur_value, list):
+        for idx, val in enumerate(cur_value):
+            result.append((val, [*cur_path, str(idx)]))
+    return result
+
+def __ignore_targets(func):
+    def _wrapper(graph, cur_value, cur_path):
+        if isinstance(cur_value, dict) and is_ref(cur_value):
+            return None
+        else:
+            return func(graph, cur_value, cur_path)
+    return _wrapper
+
+def __simplify_targets(walker):
+    def _wrapper(cur_value, cur_path):
+        if is_ref(cur_value):
+            walker('@('+cur_value['TargetId']+')', cur_path)
+        else:
+            walker(cur_value, cur_path)
+    return _wrapper
+
+def __walk_config(walker, graph, stack, nodes_provider):
     while stack:
         (cur_value, cur_path) = stack.pop()
-        if isinstance(cur_value, dict):
-            for attr, val in cur_value.items():
-                stack.append((val, [*cur_path, attr]))
-        elif isinstance(cur_value, list):
-            for idx, val in enumerate(cur_value):
-                stack.append((val, [*cur_path, str(idx)]))
+        next_nodes = nodes_provider(graph, cur_value, cur_path)
+        if next_nodes:
+            stack.extend(next_nodes)
         else:
-            task(cur_value, cur_path)
+            walker(cur_value, cur_path)
 
-def load_config(file):
-    def _build_graph(obj):
-        pass
+def walk_config(walker, config, follow_symlinks=False):
+    graph = build_graph(config)
+    if follow_symlinks:
+        provider = __with_follow_symlinks(__nodes_provider)
+        starting_nodes = [(graph.nodes[k], [k]) for k in find_roots(graph)]
+    else:
+        provider = __ignore_targets(__nodes_provider)
+        walker = __simplify_targets(walker)
+        starting_nodes = [(graph.nodes[k], [k]) for k in graph.nodes]
+    __walk_config(walker, graph, starting_nodes, provider)
 
-    def _to_index(obj):
-        pass
-
-    with open(file, 'r', encoding='utf8', errors='strict') as json_file:
-        obj = json.load(json_file)['Content']['Added']
-        _to_index(obj)
-    return {}
-    
-
-def __old_load_config(file):
-    def remove_key_from_dict(item, key):
-        r = dict(item)
-        del r[key]
-        return r
-
-    def remove_key_from_many_dicts(items, key):
-        return [remove_key_from_dict(item, key) for item in list(items)]
-
-    def group_by_type(items):
-        key_value = "ObjectType"
-        key_selector = lambda x:x[key_value]
-        sorted_list = sorted(items, key=key_selector)
-        return {k: remove_key_from_many_dicts(v, key_value) for k, v in groupby(sorted_list, key_selector)}
-    
-    def group_by_id(items):
-        return {v["Id"]: remove_key_from_dict(v, "Id") for v in items}
-
-    with open(file, 'r', encoding='utf8', errors='strict') as json_file:
-        obj = json.load(json_file)
-        obj = group_by_type(obj["Content"]["Added"])
-        return {k: group_by_id(v) for k, v in obj.items()}
-
-def create_index_from_config(export_file):
-    content = load_config(export_file)
+def create_index_from_config(config_file, follow_symlinks=False):
     index = Index()
     def add_index(value, path):
         index.add('/'.join(path), value)
-    _walk_tree(add_index, content, [])
+    with open(config_file, 'r', encoding='utf8', errors='strict') as fsock:
+        walk_config(add_index, json.load(fsock), follow_symlinks)
     return index
-

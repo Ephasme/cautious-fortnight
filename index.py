@@ -1,8 +1,8 @@
 from utils import (
     dump_object, 
     save_object, 
-    hash_object,
 )
+from crypto import sha1
 import json
 from itertools import groupby
 from posixpath import normpath
@@ -29,7 +29,7 @@ def hash_tree(tree):
 
         content = dict(**subtrees, **blobs)
 
-        id_content = hash_object(content)
+        id_content = sha1(content)
         tree_index[id_content] = content
         return id_content
 
@@ -73,11 +73,11 @@ def diff_trees(visitor, tree_id_a, tree_id_b, trees, path=[]):
         if a and b and a[0] == 'tree' and a[1] != b[1]:
             diff_trees(visitor, a[1], b[1], trees, new_path)
         elif a and b and a[0] == 'blob' and a[1] != b[1]:
-            visitor.conflict(new_path, a[1], b[1])
+            visitor(new_path, 'conflict', a[1], b[1])
         elif a and not b:
-            visitor.deleted(new_path)
+            visitor(new_path, 'deleted')
         elif b and not a:
-            visitor.created(new_path)    
+            visitor(new_path, 'created')
 
 class Index:
     def __init__(self):
@@ -97,13 +97,18 @@ class Index:
         save_object(filename, self.pack())
 
     def __str__(self):
-        return json.dumps(self.pack(), indent=2, ensure_ascii=False)
+        def _set_default(obj):
+            if isinstance(obj, set):
+                return list(obj)
+            raise TypeError
+        return json.dumps(self.pack(), indent=2,
+            ensure_ascii=False, default=_set_default)
 
     def add(self, path, value):
         def __create_blob_id():
-            id = hash_object(value)
-            self.blobs[id] = value
-            return id        
+            hash_id = sha1(value)
+            self.blobs[hash_id] = value
+            return hash_id        
         path = normpath(path)
         blob_id = __create_blob_id()
         self.paths[path] = blob_id

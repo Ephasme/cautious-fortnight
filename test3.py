@@ -1,40 +1,27 @@
+from config_tools import load_config, build_graph, create_index_from_config
+from utils import dump_object, print_object
+from index import diff_trees
+from graph import connected_components, depth_first_search, find_roots
 import json
-from index import Index
-from utils import print_object
 
-def is_ref(d: dict):
-    return 'TargetId' in d and 'IsRef' in d and d['IsRef']
+# g = build_graph(load_config('.apps/MDC_ENSSUP_EVO.json'))
 
-def add_index(index):
-    def _inner(value, path):
-        index.add('/'.join(path), value)
-    return _inner
+# print(list(depth_first_search(g, "00004", True)))
 
-def walk_tree(task, registry, value, path = []):
-    stack = [(value, path)]
-    while stack:
-        (cur_value, cur_path) = stack.pop()
-        if isinstance(cur_value, dict):
-            if is_ref(cur_value):
-                target_id = cur_value['TargetId']
-                target = registry[target_id]
-                stack.append((target, [*cur_path, target_id]))
-            else:
-                for attr, val in cur_value.items():
-                    stack.append((val, [*cur_path, attr]))
-        elif isinstance(cur_value, list):
-            for idx, val in enumerate(cur_value):
-                stack.append((val, [*cur_path, str(idx)]))
-        else:
-            task(cur_value, cur_path)
+index1 = create_index_from_config(".apps/alcuin1.json")
+print(index1)
+# index1 = create_index_from_config(".apps/MDC_ENSSUP_EVO.json")
 
-with open('.apps/alcuin1.json', 'r', encoding='utf8') as fs:
-    config_file = json.load(fs)
-    registry = {item.pop('Id'): item for item in config_file["Content"]["Added"]}
+# index2 = create_index_from_config(".apps/alcuin1_other.json")
+# index2 = create_index_from_config(".apps/MDC_ENSSUP_EVO.json")
 
-    index = Index()
-    walk_tree(add_index(index), registry, registry)
+# (id1, t1) = index1.write_tree()
+# print(id1, json.dumps(t1, indent=2))
+# (id2, t2) = index2.write_tree()
 
-    tree = index.write_tree()
-    print_object(tree)
-    print(index)
+# t = dict(t1, **t2)
+
+# def visitor(*args):
+#     print(args)
+
+# diff_trees(visitor, id1, id2, t)
