@@ -80,7 +80,8 @@ def __walk_config(walker, graph, stack, nodes_provider):
         if next_nodes:
             stack.extend(next_nodes)
         else:
-            walker(cur_value, cur_path)
+            if cur_value:
+                walker(cur_value, cur_path)
 
 def walk_config(walker, config, follow_symlinks=False):
     graph = build_graph(config)

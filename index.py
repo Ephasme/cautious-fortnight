@@ -69,8 +69,10 @@ def diff_trees(visitor, tree_id_a, tree_id_b, trees, path=[]):
 
         a = root_a.get(key)
         b = root_b.get(key)
-        
+
         if a and b and a[0] == 'tree' and a[1] != b[1]:
+            if a[0] != b[0]:
+                raise Exception("blob became tree", a, b, tree_id_a, tree_id_b, path)
             diff_trees(visitor, a[1], b[1], trees, new_path)
         elif a and b and a[0] == 'blob' and a[1] != b[1]:
             visitor(new_path, 'conflict', a[1], b[1])
